@@ -1,0 +1,134 @@
+<?php
+if (isset($_GET["pdf"]) && isset($_GET["id"])) {
+	require_once 'pdf.php';
+	include('database_connection.php');
+	$output = '';
+
+	$statement = $connect->prepare("
+	SELECT * FROM tbl_order
+	WHERE order_id = :order_id LIMIT 1
+	");
+	$statement->execute(
+		array(':order_id' => $_GET["id"] )
+		);
+	$result = $statement->fetchAll();
+	foreach ($result as $row) {
+		$output .= '<table width="100%" border="1" cellpadding="5" cellspacing="0">
+						<tr>
+							<td colspan="2" align="center" style="font-size:18px"><b>INSIDE NOLLYWOOD INVOICE</b></td>
+						</tr>
+						<tr>
+							<td colspan="2">
+								<table width="100%" cellpadding="5">
+									<tr>
+										<td width="65%">
+											To, <br>
+											<b>RECIEVER (BILL TO)</b> <br>
+											Name: '.$row["order_reciever_name"].' <br>
+											Name: '.$row["order_reciever_address"].' <br>
+										</td>
+										<td width="35%">
+											Reverse Charge<br>
+											Invoice No. : '.$row["order_no"].' <br>
+											Invoice Date : '.$row["order_date"].' <br>
+										</td>
+									</tr>
+								</table>
+								<br>
+								<table width="100%" border="1" cellpadding="5" cellspacing="0">
+									<tr>
+										<th>Sr. No.</th>
+										<th>Item Name</th>
+										<th>Quantity</th>
+										<th>Price</th>
+										<th>Actual Amt.</th>
+										<th colspan="2">Tax1 (%)</th>
+										<th colspan="2">Tax2 (%)</th>
+										<th colspan="2">Tax3 (%)</th>
+										<th rowspan="2">Total</th>
+									</tr>
+									<tr>
+										<th></th>
+										<th></th>
+										<th></th>
+										<th></th>
+										<th></th>
+										<th>Rate</th>
+										<th>Amt.</th>
+										<th>Rate</th>
+										<th>Amt.</th>
+										<th>Rate</th>
+										<th>Amt.</th>
+									</tr>';
+				$statement = $connect->prepare("
+				SELECT * FROM tbl_order_item
+				WHERE order_id = :order_id
+				");
+				$statement->execute(
+					array(':order_id' => $_GET["id"] )
+					);
+				$item_result = $statement->fetchAll();
+				$count = 0;
+				foreach ($item_result as $sub_row) {
+					$count++;
+					$output .= '
+						<tr>
+							<td>'.$count.'</td>
+							<td>'.$sub_row["item_name"].'</td>
+							<td>'.$sub_row["order_item_quantity"].'</td>
+							<td>'.$sub_row["order_item_price"].'</td>
+							<td>'.$sub_row["order_item_actual_amount"].'</td>
+							<td>'.$sub_row["order_item_tax1_rate"].'</td>
+							<td>'.$sub_row["order_item_tax1_amount"].'</td>
+							<td>'.$sub_row["order_item_tax2_rate"].'</td>
+							<td>'.$sub_row["order_item_tax2_amount"].'</td>
+							<td>'.$sub_row["order_item_tax3_rate"].'</td>
+							<td>'.$sub_row["order_item_tax3_amount"].'</td>
+							<td>'.$sub_row["order_item_final_amount"].'</td>
+						</tr>
+					';
+				}
+		$output .='
+			<tr>
+				<td align="right" colspan="11"><b>Total</b></td>
+				<td align="right"><b>'.$row["order_total_after_tax"].'</b></td>
+			</tr>
+			<tr>
+				<td align="right"><b>Total Amt. Before Tax:</b></td>
+				<td align="right"><b>'.$row["order_total_before_tax"].'</b></td>
+			</tr>
+			<tr>
+				<td align="right"><b>Add : Tax1 :</b></td>
+				<td align="right"><b>'.$row["order_total_tax1"].'</b></td>
+			</tr>
+			<tr>
+				<td align="right"><b>Add : Tax2 :</b></td>
+				<td align="right"><b>'.$row["order_total_tax2"].'</b></td>
+			</tr>
+			<tr>
+				<td align="right"><b>Add : Tax3 :</b></td>
+				<td align="right"><b>'.$row["order_total_tax3"].'</b></td>
+			</tr>
+			<tr>
+				<td align="right"><b>Total Tax Amt. :</b></td>
+				<td align="right"><b>'.$row["order_total_tax"].'</b></td>
+			</tr>
+			<tr>
+				<td align="right" colspan="11"><b>Total Amt. After Tax :</b></td>
+				<td align="right"><b>'.$row["order_total_after_tax"].'</b></td>
+			</tr>
+		';	
+		$output .='
+								</table>
+							</td>
+						</tr>
+		';
+	}
+
+	$pdf = new Pdf();
+	$file_name = 'Invoice-'.$row["order_no"].'.pdf';
+	$pdf->loadHtml($output);
+	$pdf->render();
+	$pdf->stream($file_name, array("Attachment" => false));
+}
+?>
